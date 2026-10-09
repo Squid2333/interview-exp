@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireOwnerApi } from "@/lib/auth";
 import { getDb, getQuestionDetail, now } from "@/lib/db";
 
 export const runtime = "nodejs";
 type Context = { params: Promise<{ id: string }> };
 
 export async function POST(request: NextRequest, context: Context) {
+  const denied = await requireOwnerApi();
+  if (denied) return denied;
   const { id } = await context.params;
   if (!await getQuestionDetail(id)) return NextResponse.json({ error: "题目不存在。" }, { status: 404 });
   const body = (await request.json().catch(() => null)) as { result?: unknown } | null;

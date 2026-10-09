@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireOwnerApi } from "@/lib/auth";
 import { AIConfigurationError, answerFollowup, extractWeakPoint } from "@/lib/ai";
 import { getQuestionDetail, now, transaction } from "@/lib/db";
 
@@ -7,6 +8,8 @@ export const maxDuration = 120;
 type Context = { params: Promise<{ id: string }> };
 
 export async function POST(request: NextRequest, context: Context) {
+  const denied = await requireOwnerApi();
+  if (denied) return denied;
   const { id } = await context.params;
   const question = await getQuestionDetail(id);
   if (!question) return NextResponse.json({ error: "题目不存在。" }, { status: 404 });

@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireOwnerApi } from "@/lib/auth";
 import { getDb, getQuestionDetail, now } from "@/lib/db";
 
 export const runtime = "nodejs";
 type Context = { params: Promise<{ id: string }> };
 
 export async function PATCH(request: NextRequest, context: Context) {
+  const denied = await requireOwnerApi();
+  if (denied) return denied;
   const { id } = await context.params;
   const body = (await request.json().catch(() => null)) as { content?: unknown } | null;
   if (!body || typeof body.content !== "string" || !body.content.trim()) return NextResponse.json({ error: "备注不能为空。" }, { status: 400 });
@@ -17,6 +20,8 @@ export async function PATCH(request: NextRequest, context: Context) {
 }
 
 export async function DELETE(_request: NextRequest, context: Context) {
+  const denied = await requireOwnerApi();
+  if (denied) return denied;
   const { id } = await context.params;
   const db = getDb();
   const { rows } = await db.query<{ question_id: string }>("SELECT question_id FROM notes WHERE id=$1", [id]);

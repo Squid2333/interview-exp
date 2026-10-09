@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireOwnerApi } from "@/lib/auth";
 import { getQuestionSummaries } from "@/lib/db";
 import type { DashboardStats } from "@/lib/types";
 
 export const runtime = "nodejs";
 
 export async function GET(request: NextRequest) {
+  const denied = await requireOwnerApi();
+  if (denied) return denied;
   const all = await getQuestionSummaries();
   const now = new Date().toISOString();
   const stats: DashboardStats = {

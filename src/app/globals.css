@@ -1,5 +1,24 @@
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=Noto+Sans+SC:wght@400;500;600;700;800&display=swap');
 
+.login-page{min-height:100svh;display:grid;place-items:center;padding:24px;background:#f7f8fa}
+.login-panel{width:min(360px,100%)}
+.login-brand{display:flex;align-items:center;gap:10px;color:#6557e8;font-size:24px;font-weight:800;margin-bottom:32px;letter-spacing:0}
+.login-panel h1{font-size:22px;line-height:1.4;margin:0 0 26px;letter-spacing:0}
+.login-form{display:flex;flex-direction:column;gap:10px}
+.login-form label{font-size:13px;font-weight:600;margin-top:8px}
+.login-form>input,.password-field{width:100%;height:44px;border:1px solid #dfe3e9;border-radius:6px;background:#fff}
+.login-form>input{padding:0 12px;outline:0;font-size:14px}
+.password-field{display:flex;align-items:center;padding-right:7px}
+.password-field input{flex:1;width:0;min-width:0;border:0;background:transparent;outline:0;padding:0 12px;height:100%;font-size:14px}
+.login-form>input:focus,.password-field:focus-within{border-color:#6557e8;box-shadow:0 0 0 3px #f0eeff}
+.login-submit{width:100%;margin-top:18px;min-height:44px}
+.login-message{font-size:13px;line-height:1.7;color:#b45353;background:#fff0ef;border:1px solid #f2d9d7;border-radius:6px;padding:10px 12px;margin:12px 0 0;overflow-wrap:anywhere}
+.login-message p{margin:0 0 8px}
+.account-tools{display:flex;align-items:center;gap:12px;min-width:0}
+.account-email{max-width:190px;text-overflow:ellipsis;overflow:hidden;white-space:nowrap;font-size:11px;color:#717b8c}
+.account-tools form{display:flex}
+@media(max-width:650px){.account-email{display:none}.account-tools{gap:6px}.topbar{gap:10px}.breadcrumb{font-size:11px;min-width:0}.ai-indicator{white-space:nowrap}}
+
 :root{--ink:#1c2535;--muted:#87909e;--line:#e8ebef;--surface:#fff;--bg:#f7f8fa;--violet:#6557e8;--violet-dark:#5344d4;--soft-violet:#f0eeff;--shadow:0 12px 40px rgba(31,38,64,.035)}
 *{box-sizing:border-box}
 html,body{margin:0;min-height:100%;font-family:'DM Sans','Noto Sans SC',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:var(--ink);background:var(--bg)}

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireOwnerApi } from "@/lib/auth";
 import { getDb, getQuestionDetail, now } from "@/lib/db";
 import { CATEGORIES, normalizeQuestion } from "@/lib/questions";
 import type { QuestionStatus } from "@/lib/types";
@@ -7,12 +8,16 @@ export const runtime = "nodejs";
 type Context = { params: Promise<{ id: string }> };
 
 export async function GET(_request: NextRequest, context: Context) {
+  const denied = await requireOwnerApi();
+  if (denied) return denied;
   const { id } = await context.params;
   const question = await getQuestionDetail(id);
   return question ? NextResponse.json({ question }) : NextResponse.json({ error: "题目不存在。" }, { status: 404 });
 }
 
 export async function PATCH(request: NextRequest, context: Context) {
+  const denied = await requireOwnerApi();
+  if (denied) return denied;
   const { id } = await context.params;
   if (!await getQuestionDetail(id)) return NextResponse.json({ error: "题目不存在。" }, { status: 404 });
   const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
@@ -62,6 +67,8 @@ export async function PATCH(request: NextRequest, context: Context) {
 }
 
 export async function DELETE(_request: NextRequest, context: Context) {
+  const denied = await requireOwnerApi();
+  if (denied) return denied;
   const { id } = await context.params;
   await getDb().query("DELETE FROM questions WHERE id=$1", [id]);
   return NextResponse.json({ ok: true });

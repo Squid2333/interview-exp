@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireOwnerApi } from "@/lib/auth";
 import { classifyQuestions } from "@/lib/ai";
 import { getDb, now, transaction } from "@/lib/db";
 import { normalizeQuestion, splitQuestions } from "@/lib/questions";
@@ -7,6 +8,8 @@ export const runtime = "nodejs";
 export const maxDuration = 120;
 
 export async function POST(request: NextRequest) {
+  const denied = await requireOwnerApi();
+  if (denied) return denied;
   const body = (await request.json().catch(() => null)) as { text?: unknown } | null;
   if (!body || typeof body.text !== "string") return NextResponse.json({ error: "请粘贴题目文本。" }, { status: 400 });
   if (body.text.length > 50000) return NextResponse.json({ error: "一次导入的文本最多 5 万字，请分批导入。" }, { status: 400 });

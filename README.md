@@ -30,13 +30,42 @@ npm run dev
 ## 部署到 Vercel
 
 1. 自行把代码推到 GitHub，再在 Vercel 中导入仓库，Framework 选择 Next.js。
-2. 在 Vercel 项目设置中配置 `DATABASE_URL`、需要时配置 `DATABASE_SSL_CA`，以及下文中的 AI 环境变量。
+2. 在 Vercel 项目设置中配置 `DATABASE_URL`、下文的 3 个登录环境变量、需要时配置 `DATABASE_SSL_CA`，以及 AI 环境变量。
 3. 生产与预览环境分别选择变量适用范围。预览环境会使用它所配置的数据库，建议避免连接生产题库。
 4. 构建命令使用 `npm run build`，输出目录保持 Next.js 默认；环境变量修改后重新部署。
 
 Vercel 构建不执行建表，数据库需先初始化。所有数据库和 AI 密钥只由服务端读取；`.env`、`.env.*`（除了 `.env.example`）和 `data/` 都已忽略，不能提交到 GitHub。
 
-当前仍是共享单人题库，没有应用登录和接口访问控制。正式公开部署前需添加账户验证，或使用覆盖所有部署和 API 的 Vercel Deployment Protection（可用方式取决于套餐）。表的 RLS 已开启且未开放浏览器访问；服务端 `postgres` 连接具有管理权限，RLS 不能替代应用接口鉴权。
+## 配置登录
+
+应用使用 Supabase Auth 邮箱密码登录，页面和每个题库 / AI 接口均检查身份。未登录返回 `401`，已登录但非指定账号返回 `403`；配置缺失时不会开放题库。会话由 HttpOnly Cookie 保存，服务端校验用户，自动刷新过期会话。
+
+1. 在 Supabase **Authentication → Users → Add user → Create new user** 创建你的邮箱账号，设置密码并勾选 **Auto Confirm**。登录密码与数据库密码是两回事。
+2. 确保 **Authentication → Sign In / Providers → Email** 已开启。关闭允许新用户注册的选项；项目不提供注册入口。
+3. 在 **Settings → API Keys** 复制 **Publishable key**（旧版 `anon` key 也支持），项目 URL 可从 Connect / API 页面获取。不要使用 `secret` 或 `service_role` key。
+4. 在本地 `.env` 或 `.env.local` 中填写，并在 Vercel 同样配置：
+
+```dotenv
+SUPABASE_URL=https://你的项目编号.supabase.co
+SUPABASE_PUBLISHABLE_KEY=你的PublishableKey
+APP_OWNER_EMAIL=1767257028@qq.com
+```
+
+修改后重启应用 / 重新部署。打开首页会进入登录页，使用上面创建的邮箱和密码登录；右上角可退出。配置邮箱必须是你控制的且已确认的账号。当前采用密码登录，不需要 OAuth 回调地址，也不提供邮件重置；忘记密码时可在 Supabase 管理台重设。
+
+这是共享单人题库，指定账号可访问已有全部数据，暂不支持多用户。表的 RLS 已开启且未开放浏览器访问；服务端 `postgres` 连接具有管理权限，接口鉴权负责限制访问。
+
+### 验证登录
+
+登录集成测试使用本地模拟认证服务和虚拟账号，不需要真实密码：
+
+```bash
+npx playwright install chromium
+npm run build
+npm run test:auth
+```
+
+也可用 `PLAYWRIGHT_EXECUTABLE_PATH` 指定本机 Chrome 的可执行文件路径。测试覆盖接口访问限制、登录失败重试、会话 Cookie、会话刷新和退出，并生成桌面与手机截图到 `/tmp/interview-auth/`。
 
 ## 配置 AI
 
@@ -65,4 +94,4 @@ AI 生成内容可能出错，尤其是涉及版本差异的技术题。建议�
 
 ## 当前范围
 
-这是单人版本，开发服务器仅监听 `127.0.0.1`。数据已支持 Supabase 持久化，暂未实现 Supabase Auth、多用户数据隔离和自动迁移本地 SQLite 数据。
+这是单人版本，开发服务器仅监听 `127.0.0.1`。已支持 Supabase 数据持久化和指定账号登录，暂未实现多用户数据隔离和自动迁移本地 SQLite 数据。
