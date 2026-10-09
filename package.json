@@ -6,11 +6,14 @@
     "dev": "next dev --hostname 127.0.0.1",
     "build": "next build",
     "start": "next start --hostname 127.0.0.1",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "db:check": "node scripts/database.mjs check",
+    "db:setup": "node scripts/database.mjs setup"
   },
   "dependencies": {
     "lucide-react": "^0.468.0",
     "next": "^15.5.0",
+    "pg": "^8.23.1",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "react-markdown": "^10.1.0"
@@ -18,6 +21,7 @@
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.1",
     "@types/node": "^24.0.0",
+    "@types/pg": "^8.23.1",
     "@types/react": "^19.1.0",
     "@types/react-dom": "^19.1.0",
     "eslint": "^9.0.0",

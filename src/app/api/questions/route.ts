@@ -1,17 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getDb, getQuestionSummary } from "@/lib/db";
-import type { DashboardStats, QuestionSummary } from "@/lib/types";
+import { getQuestionSummaries } from "@/lib/db";
+import type { DashboardStats } from "@/lib/types";
 
 export const runtime = "nodejs";
 
 export async function GET(request: NextRequest) {
-  const rows = getDb().prepare(`
-    SELECT q.*,
-      (SELECT COUNT(*) FROM notes n WHERE n.question_id=q.id) AS note_count,
-      EXISTS(SELECT 1 FROM answers a WHERE a.question_id=q.id) AS has_answer
-    FROM questions q ORDER BY q.updated_at DESC, q.rowid DESC
-  `).all() as Array<{ id: string }>;
-  const all = rows.map((row) => getQuestionSummary(row.id)).filter((item): item is QuestionSummary => Boolean(item));
+  const all = await getQuestionSummaries();
   const now = new Date().toISOString();
   const stats: DashboardStats = {
     total: all.length,

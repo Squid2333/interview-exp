@@ -1,5 +1,5 @@
 import { CATEGORIES, localClassification } from "./questions";
-import { getDb, now } from "./db";
+import { getDb, now, transaction } from "./db";
 import type { ChatMessage } from "./types";
 
 export function aiConfigured(): boolean {
@@ -14,20 +14,25 @@ export class AIConfigurationError extends Error {
 
 type ModelMessage = { role: "system" | "user" | "assistant"; content: string };
 
-export function aiUsageToday(): { used: number; limit: number } {
+export async function aiUsageToday(): Promise<{ used: number; limit: number }> {
   const limit = Math.max(1, Number(process.env.AI_DAILY_REQUEST_LIMIT || 120) || 120);
   const date = new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Shanghai" });
-  const row = getDb().prepare("SELECT COUNT(*) AS count FROM ai_usage WHERE usage_date=?").get(date) as { count: number };
-  return { used: row.count, limit };
+  const { rows } = await getDb().query<{ count: string }>("SELECT COUNT(*) AS count FROM ai_usage WHERE usage_date=$1", [date]);
+  return { used: Number(rows[0].count), limit };
 }
 
 async function callModel(messages: ModelMessage[], model: "fast" | "quality", maxTokens = 3000): Promise<string> {
   if (!aiConfigured()) throw new AIConfigurationError();
-  const usage = aiUsageToday();
-  if (usage.used >= usage.limit) throw new Error(`今天的 AI 调用额度（${usage.limit} 次）已用完。可明天继续，或调整 AI_DAILY_REQUEST_LIMIT。`);
   const usageId = crypto.randomUUID();
   const usageDate = new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Shanghai" });
-  getDb().prepare("INSERT INTO ai_usage (id,usage_date,model_role,created_at) VALUES (?,?,?,?)").run(usageId, usageDate, model, now());
+  const limit = Math.max(1, Number(process.env.AI_DAILY_REQUEST_LIMIT || 120) || 120);
+  await transaction(async (client) => {
+    // Serialize daily quota reservations across Vercel instances.
+    await client.query("SELECT pg_advisory_xact_lock(hashtext($1)::bigint)", [`ai-usage:${usageDate}`]);
+    const { rows } = await client.query<{ count: string }>("SELECT COUNT(*) AS count FROM ai_usage WHERE usage_date=$1", [usageDate]);
+    if (Number(rows[0].count) >= limit) throw new Error(`今天的 AI 调用额度（${limit} 次）已用完。可明天继续，或调整 AI_DAILY_REQUEST_LIMIT。`);
+    await client.query("INSERT INTO ai_usage (id,usage_date,model_role,created_at) VALUES ($1,$2,$3,$4)", [usageId, usageDate, model, now()]);
+  });
   const base = (process.env.AI_BASE_URL || "https://api.openai.com/v1").replace(/\/+$/, "");
   try {
   const response = await fetch(`${base}/chat/completions`, {
@@ -59,7 +64,7 @@ async function callModel(messages: ModelMessage[], model: "fast" | "quality", ma
   if (!content) throw new Error("AI 没有返回内容，请重试。");
   return content;
   } catch (error) {
-    getDb().prepare("DELETE FROM ai_usage WHERE id=?").run(usageId);
+    await getDb().query("DELETE FROM ai_usage WHERE id=$1", [usageId]);
     throw error;
   }
 }

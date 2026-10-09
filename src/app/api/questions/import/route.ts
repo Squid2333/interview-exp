@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { classifyQuestions } from "@/lib/ai";
-import { getDb, now } from "@/lib/db";
+import { getDb, now, transaction } from "@/lib/db";
 import { normalizeQuestion, splitQuestions } from "@/lib/questions";
 
 export const runtime = "nodejs";
@@ -16,7 +16,8 @@ export async function POST(request: NextRequest) {
   if (lines.some((line) => line.length > 500)) return NextResponse.json({ error: "单道题最多 500 字，请精简后再导入。" }, { status: 400 });
 
   const db = getDb();
-  const existing = new Set((db.prepare("SELECT normalized_title FROM questions").all() as Array<{ normalized_title: string }>).map((q) => q.normalized_title));
+  const { rows } = await db.query<{ normalized_title: string }>("SELECT normalized_title FROM questions");
+  const existing = new Set(rows.map((q) => q.normalized_title));
   const unique: Array<{ title: string; normalized: string }> = [];
   let duplicates = 0;
   for (const title of lines) {
@@ -29,17 +30,17 @@ export async function POST(request: NextRequest) {
 
   const classification = await classifyQuestions(unique.map((q) => q.title));
   const timestamp = now();
-  const insert = db.prepare("INSERT INTO questions (id,title,normalized_title,category,tags,status,created_at,updated_at) VALUES (?,?,?,?,?,'todo',?,?)");
-  db.exec("BEGIN");
-  try {
-    unique.forEach((q, index) => {
+  const imported = await transaction(async (client) => {
+    let count = 0;
+    for (const [index, q] of unique.entries()) {
       const result = classification.items[index];
-      insert.run(crypto.randomUUID(), q.title, q.normalized, result.category, JSON.stringify(result.tags), timestamp, timestamp);
-    });
-    db.exec("COMMIT");
-  } catch (error) {
-    db.exec("ROLLBACK");
-    throw error;
-  }
-  return NextResponse.json({ imported: unique.length, duplicates, usedAI: classification.usedAI, warning: classification.warning });
+      const inserted = await client.query(
+        "INSERT INTO questions (id,title,normalized_title,category,tags,status,created_at,updated_at) VALUES ($1,$2,$3,$4,$5,'todo',$6,$7) ON CONFLICT (normalized_title) DO NOTHING",
+        [crypto.randomUUID(), q.title, q.normalized, result.category, JSON.stringify(result.tags), timestamp, timestamp]);
+      count += inserted.rowCount ?? 0;
+    }
+    return count;
+  });
+  duplicates += unique.length - imported;
+  return NextResponse.json({ imported, duplicates, usedAI: classification.usedAI, warning: classification.warning });
 }
