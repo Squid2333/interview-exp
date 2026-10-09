@@ -8,6 +8,7 @@
     "start": "next start --hostname 127.0.0.1",
     "lint": "eslint .",
     "test:auth": "node tests/auth.integration.mjs",
+    "test:questions": "node --experimental-strip-types --test tests/question-status.test.mjs",
     "db:check": "node scripts/database.mjs check",
     "db:setup": "node scripts/database.mjs setup"
   },

@@ -23,8 +23,8 @@ export async function PATCH(request: NextRequest, context: Context) {
   const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
   if (!body) return NextResponse.json({ error: "请求格式不正确。" }, { status: 400 });
   const fields: string[] = [];
-  const values: Array<string> = [];
-  function setField(column: string, value: string) {
+  const values: Array<string | boolean> = [];
+  function setField(column: string, value: string | boolean) {
     values.push(value);
     fields.push(`${column}=$${values.length}`);
   }
@@ -38,12 +38,12 @@ export async function PATCH(request: NextRequest, context: Context) {
     setField("category", body.category);
   }
   if (body.status !== undefined) {
-    if (!["todo", "learning", "mastered"].includes(String(body.status))) return NextResponse.json({ error: "状态无效。" }, { status: 400 });
+    if (!["todo", "mastered"].includes(String(body.status))) return NextResponse.json({ error: "状态无效。" }, { status: 400 });
     setField("status", body.status as QuestionStatus);
     if (body.status === "todo") {
       fields.push("review_interval_days=0", "last_reviewed_at=NULL", "next_review_at=NULL");
     } else {
-      const days = body.status === "mastered" ? 3 : 1;
+      const days = 3;
       fields.push(`review_interval_days=${days}`);
       setField("last_reviewed_at", now());
       setField("next_review_at", new Date(Date.now() + days * 86400000).toISOString());
@@ -53,8 +53,12 @@ export async function PATCH(request: NextRequest, context: Context) {
     if (!Array.isArray(body.tags) || body.tags.some((tag) => typeof tag !== "string")) return NextResponse.json({ error: "标签格式无效。" }, { status: 400 });
     setField("tags", JSON.stringify((body.tags as string[]).map((tag) => tag.trim()).filter(Boolean).slice(0, 8)));
   }
+  if (body.isFavorite !== undefined) {
+    if (typeof body.isFavorite !== "boolean") return NextResponse.json({ error: "收藏状态无效。" }, { status: 400 });
+    setField("is_favorite", body.isFavorite);
+  }
   if (!fields.length) return NextResponse.json({ error: "没有可更新的内容。" }, { status: 400 });
-  setField("updated_at", now());
+  if (fields.length > 1 || body.isFavorite === undefined) setField("updated_at", now());
   try {
     await getDb().query(`UPDATE questions SET ${fields.join(",")} WHERE id=$${values.length + 1}`, [...values, id]);
   } catch (error) {

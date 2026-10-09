@@ -13,6 +13,7 @@ type RawQuestion = {
   next_review_at: string | null;
   note_count: string;
   has_answer: boolean;
+  is_favorite: boolean;
 };
 
 const globalDb = globalThis as unknown as { interviewPool?: Pool };
@@ -46,12 +47,13 @@ function mapSummary(row: RawQuestion): QuestionSummary {
     title: row.title,
     category: row.category,
     tags: JSON.parse(row.tags),
-    status: row.status,
+    status: row.status === "learning" ? "todo" : row.status,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     nextReviewAt: row.next_review_at,
     noteCount: Number(row.note_count),
     hasAnswer: Boolean(row.has_answer),
+    isFavorite: Boolean(row.is_favorite),
   };
 }
 

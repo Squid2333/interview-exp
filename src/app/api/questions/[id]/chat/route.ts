@@ -28,7 +28,7 @@ export async function POST(request: NextRequest, context: Context) {
     await transaction(async (client) => {
       await client.query("INSERT INTO messages (id,question_id,role,content,created_at) VALUES ($1,$2,'user',$3,$4)", [userMessageId, id, message, timestamp]);
       await client.query("INSERT INTO messages (id,question_id,role,content,created_at) VALUES ($1,$2,'assistant',$3,$4)", [crypto.randomUUID(), id, response, timestamp]);
-      await client.query("UPDATE questions SET status=CASE WHEN status='todo' THEN 'learning' ELSE status END, updated_at=$1 WHERE id=$2", [timestamp, id]);
+      await client.query("UPDATE questions SET updated_at=$1 WHERE id=$2", [timestamp, id]);
     });
     const weakPoint = await extractWeakPoint(question.title, message);
     if (weakPoint) {

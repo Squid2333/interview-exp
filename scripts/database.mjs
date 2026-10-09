@@ -29,7 +29,7 @@ try {
       WHERE table_schema='public' AND table_name IN ('questions','answers','messages','notes','ai_usage')
     `);
     const expected = {
-      questions: ["id", "title", "normalized_title", "category", "tags", "status", "review_interval_days", "last_reviewed_at", "next_review_at", "created_at", "updated_at", "sequence_id"],
+      questions: ["id", "title", "normalized_title", "category", "tags", "status", "review_interval_days", "last_reviewed_at", "next_review_at", "created_at", "updated_at", "sequence_id", "is_favorite"],
       answers: ["id", "question_id", "content", "source", "created_at", "sequence_id"],
       messages: ["id", "question_id", "role", "content", "created_at", "sequence_id"],
       notes: ["id", "question_id", "content", "source_message_id", "created_at", "updated_at", "sequence_id"],

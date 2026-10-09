@@ -20,6 +20,6 @@ export async function POST(request: NextRequest, context: Context) {
   const next = new Date(Date.now() + interval * 24 * 60 * 60 * 1000).toISOString();
   const timestamp = now();
   await db.query("UPDATE questions SET status=$1,review_interval_days=$2,last_reviewed_at=$3,next_review_at=$4,updated_at=$5 WHERE id=$6",
-    [body.result === "good" ? "mastered" : "learning", interval, timestamp, next, timestamp, id]);
+    [body.result === "good" ? "mastered" : "todo", interval, timestamp, next, timestamp, id]);
   return NextResponse.json({ question: await getQuestionDetail(id) });
 }

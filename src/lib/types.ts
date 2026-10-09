@@ -1,4 +1,4 @@
-export type QuestionStatus = "todo" | "learning" | "mastered";
+export type QuestionStatus = "todo" | "mastered";
 
 export interface QuestionSummary {
   id: string;
@@ -11,6 +11,7 @@ export interface QuestionSummary {
   nextReviewAt: string | null;
   noteCount: number;
   hasAnswer: boolean;
+  isFavorite: boolean;
 }
 
 export interface Answer {
@@ -43,7 +44,7 @@ export interface QuestionDetail extends QuestionSummary {
 export interface DashboardStats {
   total: number;
   todo: number;
-  learning: number;
   mastered: number;
   due: number;
+  favorites: number;
 }

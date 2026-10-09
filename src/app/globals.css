@@ -56,3 +56,42 @@ button:disabled{cursor:not-allowed;opacity:.55}
 @media(max-width:1100px){.sidebar{flex-basis:205px}.workspace-content{padding:28px 24px}.topbar{padding:0 24px}.content-grid{grid-template-columns:minmax(270px,40%) minmax(0,1fr)}.detail-panel{padding-left:19px;padding-right:19px}.review-bar{margin-left:-19px;margin-right:-19px;padding-left:19px;padding-right:19px}}
 @media(max-width:850px){.sidebar{flex-basis:66px;padding:20px 9px}.brand{padding:0;margin-bottom:35px;justify-content:center}.brand>div:last-child,.sidebar-section-label,.nav-item span,.nav-item b,.sidebar-divider,.category-nav,.sidebar-bottom{display:none}.nav-item{justify-content:center;padding:0;gap:0}.main-nav{gap:6px}.workspace-content{padding:24px 18px}.topbar{padding:0 18px}.stats-grid{gap:8px}.stat-card{padding:12px;height:88px}.stat-icon{top:12px;right:10px;width:25px;height:25px}.stat-card>strong{font-size:23px}.content-grid{grid-template-columns:1fr}.question-list{min-height:0;max-height:410px;overflow:auto}.detail-panel{min-height:480px}}
 @media(max-width:550px){.sidebar{display:none}.topbar{height:55px}.workspace-content{padding:22px 13px}.page-heading{align-items:flex-start;margin-bottom:21px}.page-heading h1{font-size:25px}.page-heading p{font-size:10px}.page-heading .primary-button{font-size:0;width:35px;padding:0}.page-heading .primary-button svg{width:18px}.stats-grid{grid-template-columns:repeat(2,1fr);margin-bottom:22px}.stat-card{height:85px}.content-header{gap:8px}.content-header h2{font-size:13px}.search-field{width:56%;min-width:0}.detail-panel{padding:18px 16px 0}.detail-title{font-size:18px}.review-bar{margin-left:-16px;margin-right:-16px;padding:10px 16px}.review-bar>div:first-child span{display:none}.review-bar>div:last-child{gap:5px}.review-bar button{padding:7px;font-size:9px}.modal-backdrop{align-items:end;padding:0}.import-modal{border-radius:16px 16px 0 0;padding:20px}.import-modal>textarea{height:210px}}
+
+.content-header{gap:12px;flex-wrap:wrap}
+.content-header>div:first-child{align-items:center;gap:8px;white-space:nowrap}
+.content-header .search-field{flex:0 1 233px;min-width:140px}
+.list-toggle{color:#717b8c;flex:none}
+.content-grid.list-collapsed{grid-template-columns:minmax(0,1fr)}
+.question-list[hidden]{display:none}
+.question-row{padding:13px 28px 13px 14px}
+.question-row-top{margin-bottom:6px}
+.question-row-flags{display:flex;align-items:center;gap:7px}
+.favorite-indicator{color:#b77910;flex:none}
+.favorite-button.active{color:#b77910;background:#fff7df}
+.favorite-button:hover{color:#94620d;background:#fff3cd}
+.favorite-button:disabled{opacity:.5;cursor:wait}
+.mobile-favorites{display:none}
+.question-row-bottom{gap:6px;margin-top:8px;flex-wrap:wrap}
+.question-title{font-size:13px;padding-right:0;overflow-wrap:anywhere}
+.row-chevron{right:8px;width:15px}
+.detail-panel{min-width:0}
+.answer-heading{display:flex;align-items:center;gap:8px;font-size:14px;margin:24px 0 0;padding-bottom:12px;border-bottom:1px solid var(--line)}
+.detail-tabs{margin-top:28px}
+.detail-tabs button{font-size:14px}
+#notes-panel .notes-section{margin-top:0;padding-top:18px;border-top:0}
+#notes-panel .notes-list{margin-top:0}
+.chat-composer>div{justify-content:flex-end}
+.detail-title{font-size:22px;letter-spacing:0;overflow-wrap:anywhere}
+.markdown-body,.message .markdown-body{font-size:16px;line-height:1.9;color:#404b5d}
+.markdown-body h1{font-size:22px}
+.markdown-body h2{font-size:20px}
+.markdown-body h3{font-size:18px}
+.markdown-body h4,.markdown-body h5,.markdown-body h6{font-size:16px}
+.markdown-body pre{max-width:100%}
+.answer-editor textarea,.chat-composer textarea{font-size:16px;line-height:1.8}
+.note-item p,.note-edit textarea,.add-note input{font-size:14px}
+.add-note{height:40px}
+@media(min-width:851px){.content-grid{grid-template-columns:280px minmax(0,1fr)}}
+@media(min-width:851px) and (max-width:1100px){.content-grid{grid-template-columns:250px minmax(0,1fr)}}
+@media(max-width:550px){.detail-title{font-size:20px}.answer-toolbar{flex-wrap:wrap}.review-bar{flex-wrap:wrap}}
+@media(max-width:550px){.mobile-favorites{display:grid}.page-heading .primary-button{flex:none;gap:0}.page-heading .primary-button>span{display:none}}

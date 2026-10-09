@@ -6,6 +6,8 @@ import { setTimeout as delay } from "node:timers/promises";
 import { mkdir } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { createServerClient } from "@supabase/ssr";
+import pg from "pg";
+import { databaseOptions } from "../src/lib/database-options.mjs";
 
 const require = createRequire(import.meta.url);
 const { chromium } = require(process.env.PLAYWRIGHT_MODULE || "playwright");
@@ -129,10 +131,115 @@ try {
   const sessionCookies = cookieValues.filter((c) => c.name.startsWith("sb-"));
   assert.ok(sessionCookies.length);
   assert.ok(sessionCookies.every((c) => c.httpOnly && c.secure && c.sameSite === "Lax"));
+  const timestamp = new Date().toISOString();
+  const question = {
+    id: "fixture-question", title: "HashMap 为什么线程不安全？", category: "Java", tags: ["HashMap"],
+    status: "todo", createdAt: timestamp, updatedAt: timestamp, nextReviewAt: null, noteCount: 0,
+    hasAnswer: false, answer: null, messages: [], notes: [], isFavorite: false,
+  };
+  await page.route("**/api/config", (route) => route.fulfill({ json: { aiConfigured: true } }));
+  await page.route("**/api/questions**", async (route) => {
+    const url = new URL(route.request().url());
+    if (url.pathname.endsWith("/answer")) {
+      question.hasAnswer = true;
+      question.answer = { id: "fixture-answer", source: "ai", createdAt: timestamp, content: "## 核心原因\n\nHashMap 在并发修改时没有同步保护，多个线程可能覆盖彼此的更新。\n\n### 示例\n\n- 多个线程同时 put，可能丢失更新。\n- 遍历期间修改，可能触发异常。\n\n```java\nMap<String, Integer> map = new ConcurrentHashMap<>();\n```" };
+    }
+    if (url.pathname === "/api/questions/fixture-question" && route.request().method() === "PATCH") {
+      const body = route.request().postDataJSON();
+      question.isFavorite = body.isFavorite;
+    }
+    if (url.pathname === "/api/questions") {
+      const visible = (!url.searchParams.get("status") || url.searchParams.get("status") === question.status) && (!url.searchParams.get("favorites") || question.isFavorite);
+      await route.fulfill({ json: { questions: visible ? [question] : [], stats: { total: 1, todo: 1, mastered: 0, due: 0, favorites: question.isFavorite ? 1 : 0 }, categories: ["Java"] } });
+    } else {
+      await route.fulfill({ json: { question } });
+    }
+  });
+  await page.reload();
+  await page.getByRole("button", { name: /^待掌握/ }).click();
+  await page.getByRole("button", { name: "生成参考答案" }).click();
+  await page.locator("article.markdown-body").waitFor();
+  assert.equal(await page.locator(".question-row.selected").count(), 1, "generated answer stays selected in pending list");
+  assert.equal(await page.getByLabel("修改状态").inputValue(), "todo");
+  await page.getByRole("button", { name: "收藏题目" }).click();
+  await page.getByRole("button", { name: "取消收藏" }).waitFor();
+  await page.getByRole("button", { name: /^我的收藏/ }).click();
+  assert.equal(await page.locator(".question-row").count(), 1, "favorite remains visible in favorites filter");
+  await page.getByRole("button", { name: /^全部题目/ }).click();
+  assert.equal(await page.locator(".main-nav").getByText("学习中").count(), 0);
+  assert.equal(await page.locator("article.markdown-body").evaluate((node) => getComputedStyle(node).fontSize), "16px");
+  assert.equal(await page.getByRole("tab").count(), 2);
+  await page.getByLabel("输入追问").fill("为什么会丢失更新？");
+  await page.getByRole("tab", { name: /我的薄弱点/ }).click();
+  assert.equal(await page.locator("article.markdown-body").isVisible(), true, "answer remains visible in notes tab");
+  assert.equal(await page.getByLabel("添加薄弱点").isVisible(), true);
+  assert.equal(await page.getByLabel("输入追问").isVisible(), false);
+  await page.getByLabel("添加薄弱点").fill("并发更新过程还不清楚");
+  await page.getByRole("tab", { name: /追问讨论/ }).click();
+  assert.equal(await page.locator("article.markdown-body").isVisible(), true, "answer remains visible in discussion tab");
+  assert.equal(await page.getByLabel("输入追问").inputValue(), "为什么会丢失更新？");
+  await page.getByRole("tab", { name: /我的薄弱点/ }).click();
+  assert.equal(await page.getByLabel("添加薄弱点").inputValue(), "并发更新过程还不清楚");
+  await page.getByRole("tab", { name: /追问讨论/ }).click();
+  const listBounds = await page.getByRole("region", { name: "题目列表" }).boundingBox();
+  assert.ok(listBounds.width <= 280, "compact question list");
+  const expandedWidth = (await page.getByRole("region", { name: "题目详情" }).boundingBox()).width;
+  await page.getByRole("button", { name: "收起题目列表" }).click();
+  assert.equal(await page.locator("#question-list").isVisible(), false);
+  assert.ok((await page.getByRole("region", { name: "题目详情" }).boundingBox()).width > expandedWidth);
+  await mkdir("/tmp/interview-auth", { recursive: true });
+  await page.screenshot({ path: "/tmp/interview-auth/workspace-collapsed.png", fullPage: true });
+  await page.getByRole("button", { name: "展开题目列表" }).click();
+  await page.screenshot({ path: "/tmp/interview-auth/workspace-desktop.png", fullPage: true });
+  await page.setViewportSize({ width: 375, height: 812 });
+  await page.getByRole("button", { name: "只看收藏", exact: true }).click();
+  await page.getByRole("heading", { name: "我的收藏." }).waitFor();
+  await page.getByRole("button", { name: "查看全部题目", exact: true }).click();
+  await page.getByRole("heading", { name: "全部题目." }).waitFor();
+  await page.screenshot({ path: "/tmp/interview-auth/workspace-mobile.png", fullPage: true });
+  assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth));
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.reload();
+  await page.getByRole("button", { name: "取消收藏" }).waitFor();
+  assert.equal(await page.getByRole("button", { name: "取消收藏" }).getAttribute("aria-pressed"), "true", "favorite state survives page reload");
+  await page.getByRole("button", { name: /^我的收藏/ }).click();
+  await page.getByRole("button", { name: "取消收藏" }).click();
+  await page.getByText("没有符合条件的题目", { exact: true }).waitFor();
+  assert.equal(await page.locator(".question-row").count(), 0, "unfavoriting removes question from favorites list");
+  await page.getByRole("button", { name: /^全部题目/ }).click();
+  await page.getByRole("button", { name: "收藏题目" }).waitFor();
+  assert.equal(await page.getByLabel("修改状态").inputValue(), "todo", "favorites are independent of learning status");
   const cookie = sessionCookies.map((c) => `${c.name}=${c.value}`).join("; ");
   const authed = await fetch(`${base}/api/config`, { headers: { Cookie: cookie } });
   assert.equal(authed.status, 200);
   assert.equal((await authed.json()).aiConfigured, false);
+
+  const pool = new pg.Pool({ ...databaseOptions(), max: 1 });
+  const favoriteId = `favorite-test-${crypto.randomUUID()}`;
+  const reviewAt = "2099-01-01T00:00:00.000Z";
+  try {
+    await pool.query("INSERT INTO questions (id,title,normalized_title,category,status,next_review_at,created_at,updated_at) VALUES ($1,$2,$1,'Java','mastered',$3,$4,$4)", [favoriteId, "收藏功能验证临时题目", reviewAt, timestamp]);
+    const questionUrl = `${base}/api/questions/${favoriteId}`;
+    const patch = (body) => fetch(questionUrl, { method: "PATCH", headers: { Cookie: cookie, "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    assert.equal((await patch({ isFavorite: "true" })).status, 400, "rejects invalid favorite type");
+    assert.equal((await patch({ isFavorite: true })).status, 200);
+    const saved = (await (await fetch(questionUrl, { headers: { Cookie: cookie } })).json()).question;
+    assert.equal(saved.isFavorite, true, "favorite persisted through real API and database");
+    assert.equal(saved.status, "mastered");
+    assert.equal(saved.nextReviewAt, reviewAt);
+    assert.equal(saved.updatedAt, timestamp, "favorite leaves sort timestamp unchanged");
+    const favorites = await (await fetch(`${base}/api/questions?favorites=true&category=Java&search=${favoriteId}`, { headers: { Cookie: cookie } })).json();
+    assert.equal(favorites.questions.length, 0, "favorites respects search");
+    const listed = await (await fetch(`${base}/api/questions?favorites=true&category=Java`, { headers: { Cookie: cookie } })).json();
+    assert.ok(listed.questions.some((item) => item.id === favoriteId));
+    assert.ok(listed.questions.every((item) => item.isFavorite && item.category === "Java"));
+    assert.equal((await patch({ isFavorite: false })).status, 200);
+    const removed = (await (await fetch(questionUrl, { headers: { Cookie: cookie } })).json()).question;
+    assert.equal(removed.isFavorite, false);
+  } finally {
+    await pool.query("DELETE FROM questions WHERE id=$1", [favoriteId]);
+    await pool.end();
+  }
 
   const expiredSession = issue(users.owner, true);
   const expiredCookie = `sb-127-auth-token=base64-${Buffer.from(JSON.stringify(expiredSession)).toString("base64url")}`;
@@ -141,6 +248,8 @@ try {
   assert.equal(refreshed.status, 200);
   assert.ok(refreshCount > before, "expired session refreshed");
   assert.ok(refreshed.headers.getSetCookie().some((c) => c.includes("sb-127-auth-token")), "refreshed session returned as cookie");
+  await page.unroute("**/api/config");
+  await page.unroute("**/api/questions**");
   await page.getByRole("button", { name: "退出登录", exact: true }).click();
   await page.waitForURL(`${base}/login`);
   assert.equal((await context.request.get(`${base}/api/questions`)).status(), 401);
@@ -150,7 +259,7 @@ try {
   await page.setViewportSize({ width: 375, height: 812 });
   assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth));
   await page.screenshot({ path: "/tmp/interview-auth/login-mobile.png", fullPage: true });
-  console.log("PASS: all protected API methods, other-account and forged-session rejection, cross-site rejection, login errors, owner login, HttpOnly cookies, session refresh, logout, desktop/mobile screenshots.");
+  console.log("PASS: protected APIs, owner login, cookies, refresh, logout, favorites UI/filter/database persistence/validation, pending question retained after generation, list collapse/expand, 16px body, desktop/mobile layout.");
 } finally {
   await browser?.close();
   server.kill("SIGTERM");

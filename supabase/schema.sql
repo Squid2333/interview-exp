@@ -48,6 +48,7 @@ CREATE TABLE IF NOT EXISTS public.ai_usage (
 
 -- Preserve insertion order when timestamps match, including a pair of chat messages.
 ALTER TABLE public.questions ADD COLUMN IF NOT EXISTS sequence_id BIGINT GENERATED ALWAYS AS IDENTITY;
+ALTER TABLE public.questions ADD COLUMN IF NOT EXISTS is_favorite BOOLEAN NOT NULL DEFAULT FALSE;
 ALTER TABLE public.answers ADD COLUMN IF NOT EXISTS sequence_id BIGINT GENERATED ALWAYS AS IDENTITY;
 ALTER TABLE public.messages ADD COLUMN IF NOT EXISTS sequence_id BIGINT GENERATED ALWAYS AS IDENTITY;
 ALTER TABLE public.notes ADD COLUMN IF NOT EXISTS sequence_id BIGINT GENERATED ALWAYS AS IDENTITY;

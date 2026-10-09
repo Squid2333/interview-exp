@@ -18,7 +18,7 @@ export async function POST(_request: NextRequest, context: Context) {
     const timestamp = now();
     await transaction(async (client) => {
       await client.query("INSERT INTO answers (id,question_id,content,source,created_at) VALUES ($1,$2,$3,'ai',$4)", [crypto.randomUUID(), id, content, timestamp]);
-      await client.query("UPDATE questions SET status=CASE WHEN status='todo' THEN 'learning' ELSE status END, updated_at=$1 WHERE id=$2", [timestamp, id]);
+      await client.query("UPDATE questions SET updated_at=$1 WHERE id=$2", [timestamp, id]);
     });
     return NextResponse.json({ question: await getQuestionDetail(id) });
   } catch (error) {
@@ -37,7 +37,7 @@ export async function PATCH(request: NextRequest, context: Context) {
   const timestamp = now();
   await transaction(async (client) => {
     await client.query("INSERT INTO answers (id,question_id,content,source,created_at) VALUES ($1,$2,$3,'manual',$4)", [crypto.randomUUID(), id, content, timestamp]);
-    await client.query("UPDATE questions SET status=CASE WHEN status='todo' THEN 'learning' ELSE status END, updated_at=$1 WHERE id=$2", [timestamp, id]);
+    await client.query("UPDATE questions SET updated_at=$1 WHERE id=$2", [timestamp, id]);
   });
   return NextResponse.json({ question: await getQuestionDetail(id) });
 }
