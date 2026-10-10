@@ -1,10 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import {
   AlertCircle, ArrowRight, BookOpen, Check, CheckCircle2, ChevronRight, PanelLeftClose, PanelLeftOpen,
-  Clock3, Inbox, Layers3, LoaderCircle, MessageCircle, Pencil, Plus, RotateCcw,
+  Clock3, Inbox, Layers3, LoaderCircle, Menu, MessageCircle, Pencil, Plus, RotateCcw,
   Search, Send, Settings2, Sparkles, Star, StickyNote, Trash2, WandSparkles, X, LogOut,
 } from "lucide-react";
 import type { CategoryInfo, DashboardStats, QuestionDetail, QuestionSummary, QuestionStatus } from "@/lib/types";
@@ -43,6 +43,8 @@ export default function QuestionWorkspace({ email }: { email: string }) {
   const [questions, setQuestions] = useState<QuestionSummary[]>([]);
   const [stats, setStats] = useState<DashboardStats>({ total: 0, todo: 0, mastered: 0, due: 0, favorites: 0 });
   const [listCollapsed, setListCollapsed] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const sidebarCloseRef = useRef<HTMLButtonElement>(null);
   const [categories, setCategories] = useState<string[]>([]);
   const [catalogVersion, setCatalogVersion] = useState(0);
   const [categoryManagerOpen, setCategoryManagerOpen] = useState(false);
@@ -88,6 +90,22 @@ export default function QuestionWorkspace({ email }: { email: string }) {
   }, [search, category, filter]);
 
   useEffect(() => { void loadList(); }, [loadList, catalogVersion]);
+  useEffect(() => {
+    if (!sidebarOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    sidebarCloseRef.current?.focus();
+    const onKeyDown = (event: KeyboardEvent) => { if (event.key === "Escape") setSidebarOpen(false); };
+    const wideScreen = window.matchMedia("(min-width: 851px)");
+    const onWideScreen = () => { if (wideScreen.matches) setSidebarOpen(false); };
+    window.addEventListener("keydown", onKeyDown);
+    wideScreen.addEventListener("change", onWideScreen);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", onKeyDown);
+      wideScreen.removeEventListener("change", onWideScreen);
+    };
+  }, [sidebarOpen]);
   useEffect(() => {
     requestJson<{ aiConfigured: boolean }>("/api/config")
       .then((data) => setAiReady(data.aiConfigured))
@@ -171,30 +189,32 @@ export default function QuestionWorkspace({ email }: { email: string }) {
 
   return (
     <div className="app-shell">
-      <aside className="sidebar">
+      {sidebarOpen && <button className="mobile-sidebar-backdrop" aria-label="关闭侧边栏" onClick={() => setSidebarOpen(false)} />}
+      <aside id="workspace-sidebar" className={`sidebar ${sidebarOpen ? "sidebar-open" : ""}`} aria-label="侧边栏导航" role={sidebarOpen ? "dialog" : undefined} aria-modal={sidebarOpen ? true : undefined}>
         <div className="brand">
           <div className="brand-mark"><BookOpen size={21} strokeWidth={2.3} /></div>
           <div><div className="brand-name">知题<span className="brand-dot">.</span></div><div className="brand-caption">秋招知识库</div></div>
+          <button ref={sidebarCloseRef} className="icon-button sidebar-close" aria-label="关闭侧边栏" title="关闭侧边栏" onClick={() => setSidebarOpen(false)}><X size={20} /></button>
         </div>
         <div className="sidebar-section-label">工作台</div>
         <nav className="main-nav" aria-label="题目状态">
-          <button className={`nav-item ${filter === "all" ? "active" : ""}`} onClick={() => setFilter("all")}><Layers3 size={17} /><span>全部题目</span><b>{stats.total}</b></button>
-          <button className={`nav-item ${filter === "todo" ? "active" : ""}`} onClick={() => setFilter("todo")}><Inbox size={17} /><span>待掌握</span><b>{stats.todo}</b></button>
-          <button className={`nav-item ${filter === "mastered" ? "active" : ""}`} onClick={() => setFilter("mastered")}><CheckCircle2 size={17} /><span>已掌握</span><b>{stats.mastered}</b></button>
-          <button className={`nav-item ${filter === "due" ? "active" : ""}`} onClick={() => setFilter("due")}><Clock3 size={17} /><span>待复习</span><b>{stats.due}</b></button>
-          <button className={`nav-item ${filter === "favorites" ? "active" : ""}`} onClick={() => setFilter("favorites")} title="我的收藏"><Star size={17} /><span>我的收藏</span><b>{stats.favorites}</b></button>
+          <button className={`nav-item ${filter === "all" ? "active" : ""}`} onClick={() => { setFilter("all"); setSidebarOpen(false); }}><Layers3 size={17} /><span>全部题目</span><b>{stats.total}</b></button>
+          <button className={`nav-item ${filter === "todo" ? "active" : ""}`} onClick={() => { setFilter("todo"); setSidebarOpen(false); }}><Inbox size={17} /><span>待掌握</span><b>{stats.todo}</b></button>
+          <button className={`nav-item ${filter === "mastered" ? "active" : ""}`} onClick={() => { setFilter("mastered"); setSidebarOpen(false); }}><CheckCircle2 size={17} /><span>已掌握</span><b>{stats.mastered}</b></button>
+          <button className={`nav-item ${filter === "due" ? "active" : ""}`} onClick={() => { setFilter("due"); setSidebarOpen(false); }}><Clock3 size={17} /><span>待复习</span><b>{stats.due}</b></button>
+          <button className={`nav-item ${filter === "favorites" ? "active" : ""}`} onClick={() => { setFilter("favorites"); setSidebarOpen(false); }} title="我的收藏"><Star size={17} /><span>我的收藏</span><b>{stats.favorites}</b></button>
         </nav>
         <div className="sidebar-divider" />
-        <div className="category-heading"><div className="sidebar-section-label">知识分类</div><button className="icon-button" title="管理知识分类" aria-label="管理知识分类" onClick={() => setCategoryManagerOpen(true)}><Settings2 size={16} /></button></div>
+        <div className="category-heading"><div className="sidebar-section-label">知识分类</div><button className="icon-button" title="管理知识分类" aria-label="管理知识分类" onClick={() => { setSidebarOpen(false); setCategoryManagerOpen(true); }}><Settings2 size={16} /></button></div>
         <nav className="category-nav" aria-label="知识分类">
-          <button className={`category-item ${category === null ? "selected" : ""}`} onClick={() => setCategory(null)}><span className="category-dot all-dot" />所有分类</button>
-          {categories.map((item) => <button key={item} className={`category-item ${category === item ? "selected" : ""}`} onClick={() => setCategory(item)}><span className="category-dot" />{item}</button>)}
+          <button className={`category-item ${category === null ? "selected" : ""}`} onClick={() => { setCategory(null); setSidebarOpen(false); }}><span className="category-dot all-dot" />所有分类</button>
+          {categories.map((item) => <button key={item} className={`category-item ${category === item ? "selected" : ""}`} onClick={() => { setCategory(item); setSidebarOpen(false); }}><span className="category-dot" />{item}</button>)}
         </nav>
         <div className="sidebar-bottom"><div className="sidebar-bottom-icon"><Sparkles size={17} /></div><div><strong>一点点，答得上</strong><span>每天解决一个不懂的点</span></div></div>
       </aside>
 
       <main className="workspace">
-        <header className="topbar"><div className="breadcrumb">我的题库 <ChevronRight size={15} /> <strong>{FILTER_LABELS[filter]}</strong></div><div className="account-tools"><div className={`ai-indicator ${aiReady ? "ready" : ""}`}><span />{aiReady === null ? "正在检查 AI" : aiReady ? "AI 已连接" : "AI 未配置"}</div><span className="account-email" title={email}>{email}</span><form action={logout}><button className="icon-button" title="退出登录" aria-label="退出登录"><LogOut size={17} /></button></form></div></header>
+        <header className="topbar"><div className="topbar-leading"><button className="icon-button mobile-menu-toggle" aria-label="打开侧边栏" title="打开侧边栏" aria-expanded={sidebarOpen} aria-controls="workspace-sidebar" onClick={() => setSidebarOpen(true)}><Menu size={21} /></button><div className="breadcrumb">我的题库 <ChevronRight size={15} /> <strong>{FILTER_LABELS[filter]}</strong></div></div><div className="account-tools"><div className={`ai-indicator ${aiReady ? "ready" : ""}`}><span />{aiReady === null ? "正在检查 AI" : aiReady ? "AI 已连接" : "AI 未配置"}</div><span className="account-email" title={email}>{email}</span><form action={logout}><button className="icon-button" title="退出登录" aria-label="退出登录"><LogOut size={17} /></button></form></div></header>
         <div className="workspace-content">
           <div className="page-heading"><div><div className="eyebrow">INTERVIEW PREP / 2026</div><h1>{FILTER_LABELS[filter]}<span className="heading-period">.</span></h1><p>把不会的变成会的，把会的变成答得好的。</p></div><button className="primary-button" aria-label="批量导入题目" title="批量导入题目" onClick={() => setImportOpen(true)}><Plus size={18} /><span>批量导入题目</span></button></div>
 

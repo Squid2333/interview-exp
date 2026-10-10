@@ -72,6 +72,8 @@ button:disabled{cursor:not-allowed;opacity:.55}
 .favorite-button:disabled{opacity:.5;cursor:wait}
 .mobile-favorites{display:none}
 .mobile-category-manager{display:none}
+.topbar-leading{display:flex;align-items:center;gap:8px;min-width:0}
+.mobile-menu-toggle,.sidebar-close,.mobile-sidebar-backdrop{display:none}
 .category-heading{display:flex;align-items:center;justify-content:space-between;padding:0 9px 0 13px;margin-bottom:9px}
 .category-heading .sidebar-section-label{padding:0;margin:0}
 .category-heading .icon-button{color:#818a9b}
@@ -121,3 +123,18 @@ button:disabled{cursor:not-allowed;opacity:.55}
 @media(min-width:851px) and (max-width:1100px){.content-grid{grid-template-columns:250px minmax(0,1fr)}}
 @media(max-width:550px){.detail-title{font-size:20px}.answer-toolbar{flex-wrap:wrap}.review-bar{flex-wrap:wrap}}
 @media(max-width:550px){.mobile-favorites,.mobile-category-manager{display:grid}.page-heading .primary-button{flex:none;gap:0}.page-heading .primary-button>span{display:none}.category-modal{max-height:85svh}}
+@media(max-width:850px){
+  .mobile-menu-toggle,.sidebar-close{display:grid;flex:none}
+  .mobile-menu-toggle{width:34px;height:34px;color:#596276}
+  .mobile-sidebar-backdrop{display:block;position:fixed;inset:0;z-index:30;border:0;background:rgba(24,29,49,.42);cursor:pointer}
+  .sidebar{display:flex;position:fixed;top:0;bottom:0;left:0;z-index:31;width:min(280px,84vw);height:100dvh;flex:none;visibility:hidden;transform:translateX(-100%);padding:22px 16px 20px;overflow-y:auto;overscroll-behavior:contain;box-shadow:16px 0 40px rgba(28,37,53,.12);transition:transform .2s ease,visibility .2s}
+  .sidebar.sidebar-open{visibility:visible;transform:translateX(0)}
+  .sidebar .brand{justify-content:flex-start;padding:0 0 0 11px;margin-bottom:38px}
+  .sidebar .brand>div:last-child,.sidebar .sidebar-section-label,.sidebar .nav-item span,.sidebar .nav-item b,.sidebar .sidebar-divider{display:block}
+  .sidebar .nav-item{justify-content:flex-start;padding:0 13px;gap:12px}
+  .sidebar .category-nav,.sidebar .sidebar-bottom{display:flex}
+  .sidebar .category-nav{max-height:none;overflow:visible}
+  .sidebar .category-heading{display:flex}
+  .sidebar .sidebar-close{margin-left:auto}
+}
+@media(prefers-reduced-motion:reduce){.sidebar{transition:none}}
