@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireOwnerApi } from "@/lib/auth";
+import { getCategoryNames } from "@/lib/categories";
 import { getQuestionSummaries } from "@/lib/db";
 import type { DashboardStats } from "@/lib/types";
 
@@ -8,7 +9,7 @@ export const runtime = "nodejs";
 export async function GET(request: NextRequest) {
   const denied = await requireOwnerApi();
   if (denied) return denied;
-  const all = await getQuestionSummaries();
+  const [all, categories] = await Promise.all([getQuestionSummaries(), getCategoryNames()]);
   const now = new Date().toISOString();
   const stats: DashboardStats = {
     total: all.length,
@@ -29,6 +30,5 @@ export async function GET(request: NextRequest) {
     (!favorites || q.isFavorite) &&
     (!due || Boolean(q.nextReviewAt && q.nextReviewAt <= now)),
   );
-  const categories = [...new Set(all.map((q) => q.category))].sort((a, b) => a.localeCompare(b, "zh-CN"));
   return NextResponse.json({ questions, stats, categories });
 }

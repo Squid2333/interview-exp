@@ -84,6 +84,7 @@ try {
   assert.equal(home.headers.get("location"), "/login");
   const routes = [
     ["/api/config", "GET"], ["/api/questions", "GET"], ["/api/questions/import", "POST"],
+    ["/api/categories", "GET"], ["/api/categories", "POST"], ["/api/categories", "PATCH"], ["/api/categories", "DELETE"],
     ["/api/questions/test", "GET"], ["/api/questions/test", "PATCH"], ["/api/questions/test", "DELETE"],
     ["/api/questions/test/answer", "POST"], ["/api/questions/test/answer", "PATCH"],
     ["/api/questions/test/chat", "POST"], ["/api/questions/test/notes", "POST"],
@@ -137,7 +138,16 @@ try {
     status: "todo", createdAt: timestamp, updatedAt: timestamp, nextReviewAt: null, noteCount: 0,
     hasAnswer: false, answer: null, messages: [], notes: [], isFavorite: false,
   };
+  let mockCategories = [{ name: "Java", questionCount: 1 }, { name: "其他", questionCount: 0 }];
   await page.route("**/api/config", (route) => route.fulfill({ json: { aiConfigured: true } }));
+  await page.route("**/api/categories", async (route) => {
+    const method = route.request().method();
+    const body = method === "GET" ? {} : route.request().postDataJSON();
+    if (method === "POST") mockCategories = [...mockCategories.slice(0, -1), { name: body.name, questionCount: 0 }, mockCategories.at(-1)];
+    if (method === "PATCH") mockCategories = mockCategories.map((item) => item.name === body.name ? { ...item, name: body.newName } : item);
+    if (method === "DELETE") mockCategories = mockCategories.filter((item) => item.name !== body.name);
+    await route.fulfill({ json: { categories: mockCategories } });
+  });
   await page.route("**/api/questions**", async (route) => {
     const url = new URL(route.request().url());
     if (url.pathname.endsWith("/answer")) {
@@ -150,12 +160,28 @@ try {
     }
     if (url.pathname === "/api/questions") {
       const visible = (!url.searchParams.get("status") || url.searchParams.get("status") === question.status) && (!url.searchParams.get("favorites") || question.isFavorite);
-      await route.fulfill({ json: { questions: visible ? [question] : [], stats: { total: 1, todo: 1, mastered: 0, due: 0, favorites: question.isFavorite ? 1 : 0 }, categories: ["Java"] } });
+      await route.fulfill({ json: { questions: visible ? [question] : [], stats: { total: 1, todo: 1, mastered: 0, due: 0, favorites: question.isFavorite ? 1 : 0 }, categories: mockCategories.map((item) => item.name) } });
     } else {
       await route.fulfill({ json: { question } });
     }
   });
   await page.reload();
+  await page.getByRole("button", { name: "管理知识分类" }).click();
+  await page.getByLabel("新分类名称").fill("Kubernetes");
+  await page.getByRole("button", { name: "新增", exact: true }).click();
+  await page.getByRole("button", { name: "重命名 Kubernetes" }).waitFor();
+  await page.getByRole("button", { name: "重命名 Kubernetes" }).click();
+  await page.getByLabel("重命名 Kubernetes").fill("云原生");
+  await page.getByRole("button", { name: "保存分类名称" }).click();
+  await page.getByRole("button", { name: "删除 云原生" }).waitFor();
+  await page.getByRole("button", { name: "关闭分类管理" }).click();
+  assert.ok(await page.getByLabel("修改分类").locator("option[value='云原生']").count(), "custom category appears in question selector");
+  await page.getByRole("button", { name: "管理知识分类" }).click();
+  page.once("dialog", (dialog) => dialog.accept());
+  await page.getByRole("button", { name: "删除 云原生" }).click();
+  await page.getByRole("button", { name: "删除 云原生" }).waitFor({ state: "detached" });
+  await page.getByRole("button", { name: "关闭分类管理" }).click();
+  assert.equal(await page.getByLabel("修改分类").locator("option[value='云原生']").count(), 0, "removed category leaves selector");
   await page.getByRole("button", { name: /^待掌握/ }).click();
   await page.getByRole("button", { name: "生成参考答案" }).click();
   await page.locator("article.markdown-body").waitFor();
@@ -192,6 +218,10 @@ try {
   await page.getByRole("button", { name: "展开题目列表" }).click();
   await page.screenshot({ path: "/tmp/interview-auth/workspace-desktop.png", fullPage: true });
   await page.setViewportSize({ width: 375, height: 812 });
+  await page.getByRole("button", { name: "管理知识分类" }).click();
+  await page.getByRole("dialog", { name: "管理知识分类" }).waitFor();
+  await page.screenshot({ path: "/tmp/interview-auth/category-manager-mobile.png", fullPage: true });
+  await page.getByRole("button", { name: "关闭分类管理" }).click();
   await page.getByRole("button", { name: "只看收藏", exact: true }).click();
   await page.getByRole("heading", { name: "我的收藏." }).waitFor();
   await page.getByRole("button", { name: "查看全部题目", exact: true }).click();
@@ -241,6 +271,39 @@ try {
     await pool.end();
   }
 
+  const categoryPool = new pg.Pool({ ...databaseOptions(), max: 1 });
+  const categorySuffix = crypto.randomUUID().slice(0, 8);
+  const categoryName = `CodexTest${categorySuffix}`;
+  const renamedCategory = `CodexRenamed${categorySuffix}`;
+  const categoryQuestionId = `category-test-${crypto.randomUUID()}`;
+  const categoryRequest = (method, body) => fetch(`${base}/api/categories`, {
+    method,
+    headers: { Cookie: cookie, "Content-Type": "application/json" },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  try {
+    assert.equal((await categoryRequest("POST", { name: "x".repeat(31) })).status, 400);
+    assert.equal((await categoryRequest("POST", { name: categoryName })).status, 201);
+    assert.equal((await categoryRequest("POST", { name: categoryName.toLowerCase() })).status, 409);
+    const catalog = await (await categoryRequest("GET")).json();
+    assert.ok(catalog.categories.some((item) => item.name === categoryName && item.questionCount === 0), "empty categories remain visible");
+    await categoryPool.query("INSERT INTO questions (id,title,normalized_title,category,created_at,updated_at) VALUES ($1,$2,$1,$3,$4,$4)", [categoryQuestionId, "分类管理验证临时题目", categoryName, timestamp]);
+    await categoryPool.query("INSERT INTO answers (id,question_id,content,source,created_at) VALUES ($1,$2,$3,'manual',$4)", [crypto.randomUUID(), categoryQuestionId, "保留答案", timestamp]);
+    assert.equal((await categoryRequest("PATCH", { name: categoryName, newName: renamedCategory })).status, 200);
+    const renamedQuestion = (await (await fetch(`${base}/api/questions/${categoryQuestionId}`, { headers: { Cookie: cookie } })).json()).question;
+    assert.equal(renamedQuestion.category, renamedCategory, "renaming cascades to existing questions");
+    assert.equal(renamedQuestion.answer.content, "保留答案");
+    assert.equal((await categoryRequest("DELETE", { name: "其他" })).status, 400);
+    assert.equal((await categoryRequest("DELETE", { name: renamedCategory })).status, 200);
+    const reassignedQuestion = (await (await fetch(`${base}/api/questions/${categoryQuestionId}`, { headers: { Cookie: cookie } })).json()).question;
+    assert.equal(reassignedQuestion.category, "其他", "deleting moves questions to Other");
+    assert.equal(reassignedQuestion.answer.content, "保留答案", "deleting category preserves answer");
+  } finally {
+    await categoryPool.query("DELETE FROM questions WHERE id=$1", [categoryQuestionId]);
+    await categoryPool.query("DELETE FROM categories WHERE name IN ($1,$2)", [categoryName, renamedCategory]);
+    await categoryPool.end();
+  }
+
   const expiredSession = issue(users.owner, true);
   const expiredCookie = `sb-127-auth-token=base64-${Buffer.from(JSON.stringify(expiredSession)).toString("base64url")}`;
   const before = refreshCount;
@@ -250,6 +313,7 @@ try {
   assert.ok(refreshed.headers.getSetCookie().some((c) => c.includes("sb-127-auth-token")), "refreshed session returned as cookie");
   await page.unroute("**/api/config");
   await page.unroute("**/api/questions**");
+  await page.unroute("**/api/categories");
   await page.getByRole("button", { name: "退出登录", exact: true }).click();
   await page.waitForURL(`${base}/login`);
   assert.equal((await context.request.get(`${base}/api/questions`)).status(), 401);
@@ -259,7 +323,7 @@ try {
   await page.setViewportSize({ width: 375, height: 812 });
   assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth));
   await page.screenshot({ path: "/tmp/interview-auth/login-mobile.png", fullPage: true });
-  console.log("PASS: protected APIs, owner login, cookies, refresh, logout, favorites UI/filter/database persistence/validation, pending question retained after generation, list collapse/expand, 16px body, desktop/mobile layout.");
+  console.log("PASS: protected APIs, owner login, cookies, refresh, logout, category management UI/API/cascade, favorites, pending question retained after generation, list collapse/expand, desktop/mobile layout.");
 } finally {
   await browser?.close();
   server.kill("SIGTERM");

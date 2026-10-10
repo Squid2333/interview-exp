@@ -5,10 +5,10 @@ import ReactMarkdown from "react-markdown";
 import {
   AlertCircle, ArrowRight, BookOpen, Check, CheckCircle2, ChevronRight, PanelLeftClose, PanelLeftOpen,
   Clock3, Inbox, Layers3, LoaderCircle, MessageCircle, Pencil, Plus, RotateCcw,
-  Search, Send, Sparkles, Star, StickyNote, Trash2, WandSparkles, X, LogOut,
+  Search, Send, Settings2, Sparkles, Star, StickyNote, Trash2, WandSparkles, X, LogOut,
 } from "lucide-react";
-import type { DashboardStats, QuestionDetail, QuestionSummary, QuestionStatus } from "@/lib/types";
-import { CATEGORIES } from "@/lib/questions";
+import type { CategoryInfo, DashboardStats, QuestionDetail, QuestionSummary, QuestionStatus } from "@/lib/types";
+import CategoryManager from "./category-manager";
 import { logout } from "@/app/login/actions";
 
 type Filter = "all" | "todo" | "mastered" | "due" | "favorites";
@@ -44,6 +44,8 @@ export default function QuestionWorkspace({ email }: { email: string }) {
   const [stats, setStats] = useState<DashboardStats>({ total: 0, todo: 0, mastered: 0, due: 0, favorites: 0 });
   const [listCollapsed, setListCollapsed] = useState(false);
   const [categories, setCategories] = useState<string[]>([]);
+  const [catalogVersion, setCatalogVersion] = useState(0);
+  const [categoryManagerOpen, setCategoryManagerOpen] = useState(false);
   const [filter, setFilter] = useState<Filter>("all");
   const [category, setCategory] = useState<string | null>(null);
   const [search, setSearch] = useState("");
@@ -85,7 +87,7 @@ export default function QuestionWorkspace({ email }: { email: string }) {
     }
   }, [search, category, filter]);
 
-  useEffect(() => { void loadList(); }, [loadList]);
+  useEffect(() => { void loadList(); }, [loadList, catalogVersion]);
   useEffect(() => {
     requestJson<{ aiConfigured: boolean }>("/api/config")
       .then((data) => setAiReady(data.aiConfigured))
@@ -158,6 +160,15 @@ export default function QuestionWorkspace({ email }: { email: string }) {
     setSelectedId(id); setTab("discussion"); setEditingAnswer(false); setEditingNote(null); setError(null);
   }
 
+  function handleCategoryChange(items: CategoryInfo[], change?: { oldName: string; newName: string }) {
+    setCategories(items.map((item) => item.name));
+    if (change) {
+      setCategory((current) => current === change.oldName ? change.newName : current);
+      setDetail((current) => current?.category === change.oldName ? { ...current, category: change.newName } : current);
+    }
+    setCatalogVersion((current) => current + 1);
+  }
+
   return (
     <div className="app-shell">
       <aside className="sidebar">
@@ -174,7 +185,7 @@ export default function QuestionWorkspace({ email }: { email: string }) {
           <button className={`nav-item ${filter === "favorites" ? "active" : ""}`} onClick={() => setFilter("favorites")} title="我的收藏"><Star size={17} /><span>我的收藏</span><b>{stats.favorites}</b></button>
         </nav>
         <div className="sidebar-divider" />
-        <div className="sidebar-section-label">知识分类</div>
+        <div className="category-heading"><div className="sidebar-section-label">知识分类</div><button className="icon-button" title="管理知识分类" aria-label="管理知识分类" onClick={() => setCategoryManagerOpen(true)}><Settings2 size={16} /></button></div>
         <nav className="category-nav" aria-label="知识分类">
           <button className={`category-item ${category === null ? "selected" : ""}`} onClick={() => setCategory(null)}><span className="category-dot all-dot" />所有分类</button>
           {categories.map((item) => <button key={item} className={`category-item ${category === item ? "selected" : ""}`} onClick={() => setCategory(item)}><span className="category-dot" />{item}</button>)}
@@ -198,7 +209,7 @@ export default function QuestionWorkspace({ email }: { email: string }) {
           {notice && <div className="notice-banner"><Check size={17} /><span>{notice}</span><button aria-label="关闭提示" onClick={() => setNotice(null)}><X size={16} /></button></div>}
           {error && <div className="error-banner"><AlertCircle size={17} /><span>{error}</span><button aria-label="关闭错误" onClick={() => setError(null)}><X size={16} /></button></div>}
 
-          <div className="content-header"><div><button className="icon-button list-toggle" aria-label={listCollapsed ? "展开题目列表" : "收起题目列表"} title={listCollapsed ? "展开题目列表" : "收起题目列表"} aria-expanded={!listCollapsed} aria-controls="question-list" onClick={() => setListCollapsed(!listCollapsed)}>{listCollapsed ? <PanelLeftOpen size={19} /> : <PanelLeftClose size={19} />}</button><h2>题目列表</h2><span>{questions.length} 道题</span><button className={`icon-button favorite-button mobile-favorites ${filter === "favorites" ? "active" : ""}`} aria-label={filter === "favorites" ? "查看全部题目" : "只看收藏"} title={filter === "favorites" ? "查看全部题目" : "只看收藏"} aria-pressed={filter === "favorites"} onClick={() => setFilter(filter === "favorites" ? "all" : "favorites")}><Star size={18} fill={filter === "favorites" ? "currentColor" : "none"} /></button></div><div className="search-field"><Search size={17} /><input value={search} onChange={(event) => { setSearch(event.target.value); setListCollapsed(false); }} placeholder="搜索题目、分类或标签" aria-label="搜索题目" /></div></div>
+          <div className="content-header"><div><button className="icon-button list-toggle" aria-label={listCollapsed ? "展开题目列表" : "收起题目列表"} title={listCollapsed ? "展开题目列表" : "收起题目列表"} aria-expanded={!listCollapsed} aria-controls="question-list" onClick={() => setListCollapsed(!listCollapsed)}>{listCollapsed ? <PanelLeftOpen size={19} /> : <PanelLeftClose size={19} />}</button><h2>题目列表</h2><span>{questions.length} 道题</span><button className={`icon-button favorite-button mobile-favorites ${filter === "favorites" ? "active" : ""}`} aria-label={filter === "favorites" ? "查看全部题目" : "只看收藏"} title={filter === "favorites" ? "查看全部题目" : "只看收藏"} aria-pressed={filter === "favorites"} onClick={() => setFilter(filter === "favorites" ? "all" : "favorites")}><Star size={18} fill={filter === "favorites" ? "currentColor" : "none"} /></button><button className="icon-button mobile-category-manager" aria-label="管理知识分类" title="管理知识分类" onClick={() => setCategoryManagerOpen(true)}><Settings2 size={18} /></button></div><div className="search-field"><Search size={17} /><input value={search} onChange={(event) => { setSearch(event.target.value); setListCollapsed(false); }} placeholder="搜索题目、分类或标签" aria-label="搜索题目" /></div></div>
           <div className={`content-grid ${listCollapsed ? "list-collapsed" : ""}`}>
             <section id="question-list" className="question-list" aria-label="题目列表" hidden={listCollapsed}>
               {loadingList ? <div className="list-empty"><LoaderCircle className="spin" size={24} />正在加载题库...</div> : questions.length ? questions.map((question, index) => <button key={question.id} className={`question-row ${selectedId === question.id ? "selected" : ""}`} onClick={() => selectQuestion(question.id)}><div className="question-row-top"><span className="question-index">{String(index + 1).padStart(2, "0")}</span><div className="question-row-flags">{question.isFavorite && <Star className="favorite-indicator" size={13} fill="currentColor" aria-label="已收藏" />}<span className={`status-pill status-${question.status}`}>{STATUS_LABELS[question.status]}</span></div></div><div className="question-title">{question.title}</div><div className="question-row-bottom"><span className="category-badge">{question.category}</span>{question.noteCount > 0 && <span className="row-meta"><StickyNote size={13} /> {question.noteCount} 个薄弱点</span>}<span className="row-date">{relativeDate(question.updatedAt)}</span></div><ChevronRight className="row-chevron" size={18} /></button>) : <div className="list-empty"><div className="empty-icon"><Inbox size={26} /></div><strong>{stats.total ? "没有符合条件的题目" : "你的题库还是空的"}</strong><p>{stats.total ? "试试其他筛选条件或搜索关键词。" : "先导入几道题，开始建立自己的秋招知识库。"}</p>{!stats.total && <button className="text-button" onClick={() => { setImportText(SAMPLE_QUESTIONS); setImportOpen(true); }}>试试示例题目 <ArrowRight size={16} /></button>}</div>}
@@ -206,7 +217,7 @@ export default function QuestionWorkspace({ email }: { email: string }) {
 
             <section className="detail-panel" aria-label="题目详情">
               {detail && selectedId === detail.id ? <>
-                <div className="detail-top"><div className="detail-overline"><select className="category-select" aria-label="修改分类" value={detail.category} disabled={Boolean(busy)} onChange={(event) => applyQuestionAction(`/api/questions/${detail.id}`, "PATCH", { category: event.target.value }, "category")}>{CATEGORIES.map((item) => <option key={item} value={item}>{item}</option>)}</select><span className="detail-separator">/</span><select className="status-select" aria-label="修改状态" value={detail.status} disabled={Boolean(busy)} onChange={(event) => applyQuestionAction(`/api/questions/${detail.id}`, "PATCH", { status: event.target.value }, "status")}><option value="todo">待掌握</option><option value="mastered">已掌握</option></select></div><div className="detail-actions">
+                <div className="detail-top"><div className="detail-overline"><select className="category-select" aria-label="修改分类" value={detail.category} disabled={Boolean(busy)} onChange={(event) => applyQuestionAction(`/api/questions/${detail.id}`, "PATCH", { category: event.target.value }, "category")}>{categories.map((item) => <option key={item} value={item}>{item}</option>)}</select><span className="detail-separator">/</span><select className="status-select" aria-label="修改状态" value={detail.status} disabled={Boolean(busy)} onChange={(event) => applyQuestionAction(`/api/questions/${detail.id}`, "PATCH", { status: event.target.value }, "status")}><option value="todo">待掌握</option><option value="mastered">已掌握</option></select></div><div className="detail-actions">
                   <button className={`icon-button favorite-button ${detail.isFavorite ? "active" : ""}`} title={detail.isFavorite ? "取消收藏" : "收藏题目"} aria-label={detail.isFavorite ? "取消收藏" : "收藏题目"} aria-pressed={detail.isFavorite} disabled={Boolean(busy)} onClick={() => applyQuestionAction(`/api/questions/${detail.id}`, "PATCH", { isFavorite: !detail.isFavorite }, "favorite")}><Star size={18} fill={detail.isFavorite ? "currentColor" : "none"} /></button>
                   <button className="icon-button" title="删除题目" aria-label="删除题目" onClick={handleDeleteQuestion} disabled={Boolean(busy)}><Trash2 size={17} /></button></div></div>
                 <h2 className="detail-title">{detail.title}</h2>
@@ -240,6 +251,7 @@ export default function QuestionWorkspace({ email }: { email: string }) {
       </main>
 
       {importOpen && <div className="modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget && !busy) setImportOpen(false); }}><div className="import-modal" role="dialog" aria-modal="true" aria-label="批量导入题目"><div className="modal-header"><div className="modal-icon"><Plus size={21} /></div><button className="icon-button" onClick={() => setImportOpen(false)} aria-label="关闭" disabled={Boolean(busy)}><X size={20} /></button></div><h2>批量导入题目</h2><p>每行一道题。系统会自动去重并分类，新题目先进入待掌握。</p><textarea autoFocus value={importText} onChange={(event) => setImportText(event.target.value)} placeholder={SAMPLE_QUESTIONS} aria-label="粘贴题目列表" /><div className="import-hint"><span>{importCount} 行内容 · 单次最多 150 道</span><button onClick={() => setImportText(SAMPLE_QUESTIONS)}>填入示例</button></div><div className="modal-footer"><button className="ghost-button" onClick={() => setImportOpen(false)} disabled={Boolean(busy)}>取消</button><button className="primary-button" onClick={handleImport} disabled={!importText.trim() || Boolean(busy)}>{busy === "import" ? <LoaderCircle className="spin" size={17} /> : <ArrowRight size={17} />}{busy === "import" ? "正在导入和分类..." : "导入题库"}</button></div></div></div>}
+      {categoryManagerOpen && <CategoryManager onClose={() => setCategoryManagerOpen(false)} onChange={handleCategoryChange} />}
     </div>
   );
 }

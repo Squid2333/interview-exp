@@ -26,7 +26,7 @@ try {
     await pool.query("SELECT 1");
     const { rows } = await pool.query(`
       SELECT table_name, column_name FROM information_schema.columns
-      WHERE table_schema='public' AND table_name IN ('questions','answers','messages','notes','ai_usage')
+      WHERE table_schema='public' AND table_name IN ('questions','answers','messages','notes','ai_usage','categories')
     `);
     const expected = {
       questions: ["id", "title", "normalized_title", "category", "tags", "status", "review_interval_days", "last_reviewed_at", "next_review_at", "created_at", "updated_at", "sequence_id", "is_favorite"],
@@ -34,6 +34,7 @@ try {
       messages: ["id", "question_id", "role", "content", "created_at", "sequence_id"],
       notes: ["id", "question_id", "content", "source_message_id", "created_at", "updated_at", "sequence_id"],
       ai_usage: ["id", "usage_date", "model_role", "created_at"],
+      categories: ["name", "sequence_id"],
     };
     const missing = Object.entries(expected).flatMap(([table, columns]) => columns
       .filter((column) => !rows.some((row) => row.table_name === table && row.column_name === column))
@@ -42,7 +43,7 @@ try {
       console.error(`连接成功，但缺少字段：${missing.join(", ")}。请执行 npm run db:setup。`);
       process.exitCode = 1;
     } else {
-      console.log("数据库连接成功，5 张表及所需字段均已就绪。");
+      console.log("数据库连接成功，6 张表及所需字段均已就绪。");
     }
   }
 } catch (error) {

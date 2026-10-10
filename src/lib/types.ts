@@ -48,3 +48,8 @@ export interface DashboardStats {
   due: number;
   favorites: number;
 }
+
+export interface CategoryInfo {
+  name: string;
+  questionCount: number;
+}

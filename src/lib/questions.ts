@@ -1,16 +1,3 @@
-export const CATEGORIES = [
-  "Java",
-  "Spring",
-  "数据库",
-  "Redis",
-  "计算机网络",
-  "操作系统",
-  "算法",
-  "前端",
-  "系统设计",
-  "其他",
-] as const;
-
 export function normalizeQuestion(value: string): string {
   return value
     .toLowerCase()
@@ -45,7 +32,9 @@ const CATEGORY_RULES: Array<[string, RegExp]> = [
   ["系统设计", /系统设计|架构|高并发|限流|熔断|消息队列|分库分表/i],
 ];
 
-export function localClassification(question: string): { category: string; tags: string[] } {
-  const category = CATEGORY_RULES.find(([, rule]) => rule.test(question))?.[0] ?? "其他";
+export function localClassification(question: string, categories: string[]): { category: string; tags: string[] } {
+  const known = CATEGORY_RULES.find(([name, rule]) => categories.includes(name) && rule.test(question))?.[0];
+  const custom = categories.find((name) => name !== "其他" && question.toLowerCase().includes(name.toLowerCase()));
+  const category = known ?? custom ?? "其他";
   return { category, tags: [] };
 }

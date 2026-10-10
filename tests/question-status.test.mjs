@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { getQuestionSummaries } from "../src/lib/db.ts";
+import { localClassification } from "../src/lib/questions.ts";
 
 test("legacy learning questions join pending without losing review dates", async () => {
   const previousPool = globalThis.interviewPool;
@@ -22,4 +23,10 @@ test("legacy learning questions join pending without losing review dates", async
   } finally {
     globalThis.interviewPool = previousPool;
   }
+});
+
+test("keyword fallback uses only current categories and can recognize custom names", () => {
+  assert.equal(localClassification("Redis 持久化原理", ["其他", "数据库"]).category, "其他");
+  assert.equal(localClassification("Kubernetes 调度机制", ["其他", "Kubernetes"]).category, "Kubernetes");
+  assert.equal(localClassification("MySQL 索引原理", ["其他", "数据库"]).category, "数据库");
 });

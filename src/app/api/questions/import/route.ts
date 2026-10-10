@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireOwnerApi } from "@/lib/auth";
 import { classifyQuestions } from "@/lib/ai";
+import { getCategoryNames, OTHER_CATEGORY } from "@/lib/categories";
 import { getDb, now, transaction } from "@/lib/db";
 import { normalizeQuestion, splitQuestions } from "@/lib/questions";
 
@@ -31,15 +32,17 @@ export async function POST(request: NextRequest) {
   }
   if (!unique.length) return NextResponse.json({ imported: 0, duplicates, usedAI: false, warning: "这些题目都已存在。" });
 
-  const classification = await classifyQuestions(unique.map((q) => q.title));
+  const classification = await classifyQuestions(unique.map((q) => q.title), await getCategoryNames());
   const timestamp = now();
   const imported = await transaction(async (client) => {
+    const { rows: currentCategories } = await client.query<{ name: string }>("SELECT name FROM categories");
+    const validCategories = new Set(currentCategories.map((item) => item.name));
     let count = 0;
     for (const [index, q] of unique.entries()) {
       const result = classification.items[index];
       const inserted = await client.query(
         "INSERT INTO questions (id,title,normalized_title,category,tags,status,created_at,updated_at) VALUES ($1,$2,$3,$4,$5,'todo',$6,$7) ON CONFLICT (normalized_title) DO NOTHING",
-        [crypto.randomUUID(), q.title, q.normalized, result.category, JSON.stringify(result.tags), timestamp, timestamp]);
+        [crypto.randomUUID(), q.title, q.normalized, validCategories.has(result.category) ? result.category : OTHER_CATEGORY, JSON.stringify(result.tags), timestamp, timestamp]);
       count += inserted.rowCount ?? 0;
     }
     return count;
